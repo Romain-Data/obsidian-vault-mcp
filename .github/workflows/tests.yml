@@ -1,0 +1,30 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ripgrep (recherche dans les notes)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ripgrep
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Dépendances (versions figées par uv.lock)
+        run: uv sync --frozen
+      - name: Tests
+        run: uv run pytest -v
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: L'image se construit
+        run: docker build -t coffre-mcp:ci .

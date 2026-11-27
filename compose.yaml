@@ -1,0 +1,31 @@
+# Serveur MCP du coffre Obsidian. Réglages propres à ton installation : dans .env (voir .env.example).
+services:
+  coffre-mcp:
+    build: .
+    image: coffre-mcp:local
+    container_name: coffre-mcp
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      COFFRE_DIR: /coffre
+      DATA_DIR: /data
+    volumes:
+      - ${COFFRE_HOTE:?chemin du coffre sur l'hôte, dans .env}:/coffre:ro   # lecture/recherche : en lecture seule
+      - ./data:/data                                                         # base des jetons OAuth (empreintes)
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    networks:
+      - proxy           # reverse proxy ou tunnel (cloudflared, Caddy, Traefik…) → coffre-mcp:8000
+      - nextcloud       # coffre-mcp → Nextcloud (écritures WebDAV, sans passer par Internet)
+    logging:
+      driver: "json-file"
+      options: { max-size: "10m", max-file: "3" }
+
+networks:
+  proxy:
+    external: true
+  nextcloud:
+    external: true
+    name: ${NEXTCLOUD_RESEAU:-nextcloud-aio}
