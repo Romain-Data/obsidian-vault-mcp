@@ -52,7 +52,9 @@ flowchart LR
 | `ajouter_a_note` (append) | Appends to a note |
 | `remplacer_dans_note` (replace) | Replaces a passage that must be **unique** in the note |
 
-No delete or rename tool. Read tools are annotated `readOnlyHint`, write tools `destructiveHint=false`.
+**Calendar (optional, `AGENDA_ACTIF=1`)** — over CalDAV with the same Nextcloud account: `lister_agendas`, `lister_evenements` (range, recurrences expanded), `creer_evenement` (local time, reminder, RRULE), `modifier_evenement` (only the given fields change). Share the calendar with the `claude-mcp` account ("Can edit"); events reach the phone through DAVx⁵.
+
+No delete or rename tool. For notes this is enforced by Nextcloud; for the calendar only by the code (an editable calendar share also allows deletion; Nextcloud Calendar's trash bin is the safety net). Read tools are annotated `readOnlyHint`, write tools `destructiveHint=false`.
 
 ## Security choices, and why
 
