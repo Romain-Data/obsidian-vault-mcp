@@ -33,10 +33,11 @@ flowchart LR
 
 | Brique | Rôle |
 | --- | --- |
-| `server.py` | Serveur MCP (`MCPServer` du SDK officiel) : 6 outils, *resource server* OAuth (jeton vérifié à chaque requête, audience contrôlée) |
+| `server.py` | Serveur MCP (`MCPServer` du SDK officiel) : 6 outils (+ 4 pour l'agenda), *resource server* OAuth (jeton vérifié à chaque requête, audience contrôlée) |
 | `auth.py` | Mini **serveur d'autorisation OAuth 2.1** : 1 utilisateur, 1 client pré-enregistré, PKCE S256, phrase de passe (scrypt) + TOTP, jetons stockés sous forme d'empreintes |
 | `coffre.py` | Accès au coffre : validation des chemins, lecture/recherche locales, écritures avec résolution de conflit |
 | `webdav.py` | Client WebDAV vers Nextcloud, avec contrôle d'ETag (`If-Match`) |
+| `agenda.py` | Client CalDAV (optionnel) : agendas, événements, récurrences, conflits par ETag |
 | `init_secrets.py` | Génère les secrets dans le `.env` (phrase de passe hachée, QR code TOTP, secret client) |
 
 ### Outils exposés à Claude
@@ -50,7 +51,18 @@ flowchart LR
 | `ajouter_a_note(chemin, texte)` | Ajoute à la fin d'une note |
 | `remplacer_dans_note(chemin, ancien, nouveau)` | Remplace un passage qui doit être **unique** dans la note |
 
-Aucun outil de suppression ni de renommage. Les outils de lecture sont annotés `readOnlyHint`, ceux d'écriture `destructiveHint=false`.
+**Agenda (optionnel, `AGENDA_ACTIF=1`)** — par CalDAV, avec le même compte Nextcloud :
+
+| Outil | Effet |
+| --- | --- |
+| `lister_agendas()` | Agendas visibles, droits, agenda par défaut |
+| `lister_evenements(debut, fin, agenda_nom)` | Événements d'une période, récurrences développées, avec leur id |
+| `creer_evenement(titre, debut, fin, journee_entiere, lieu, description, rappel_minutes, recurrence, agenda_nom)` | Crée un événement (heure locale, rappel, règle RRULE) |
+| `modifier_evenement(id_evenement, …)` | Ne change que les champs fournis ; déplacer le début garde la durée |
+
+Les événements arrivent sur le téléphone par DAVx⁵ (ou tout client CalDAV) : Claude peut ainsi gérer l'agenda depuis n'importe quel appareil.
+
+Aucun outil de suppression ni de renommage. Pour les notes, c'est garanti par Nextcloud (voir plus bas) ; pour l'agenda, seulement par le code, car un partage d'agenda en écriture autorise aussi la suppression (la corbeille de Nextcloud Agenda reste le filet). Les outils de lecture sont annotés `readOnlyHint`, ceux d'écriture `destructiveHint=false`.
 
 ## Choix de sécurité, et pourquoi
 
@@ -88,13 +100,15 @@ Prérequis : Docker, un Nextcloud (testé avec Nextcloud AIO), une URL publique 
 3. **Exposition** : faire pointer l'URL publique vers `coffre-mcp:8000` (HTTP en interne). Vérifier : `curl https://<url>/sante` → `ok` ; `curl -i https://<url>/mcp` → `401` avec `WWW-Authenticate: Bearer resource_metadata=…`.
 4. **claude.ai** : Réglages → Connecteurs → *Add custom connector* → URL `https://<url>/mcp`, puis *Use your own OAuth client* avec l'identifiant et le secret. Connexion : phrase de passe + code TOTP.
 
+**Agenda (optionnel)** : dans Nextcloud Agenda, partager l'agenda au compte `claude-mcp` avec « Peut modifier », puis dans `.env` : `AGENDA_ACTIF=1` (et `AGENDA_DEFAUT=<nom>` s'il y a plusieurs agendas modifiables), et `docker compose up -d`. Sur Android, DAVx⁵ synchronise ensuite l'agenda dans n'importe quelle appli d'agenda.
+
 Conseillé : un fichier `_index.md` à la racine du coffre (une ligne par note) et un `_Conventions.md` ; les descriptions d'outils invitent Claude à commencer par là.
 
 ### Développement
 
 ```bash
 uv sync
-uv run pytest        # 34 tests : parcours OAuth complet, chemins, ETag, conflits, recherche
+uv run pytest        # 42 tests : parcours OAuth complet, chemins, ETag, conflits, recherche, agenda (contre un vrai serveur CalDAV, Radicale)
 ```
 
 ## Bugs rencontrés en production (et corrigés)
